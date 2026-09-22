@@ -52,20 +52,20 @@ jobs:
           # These are dummy values only.
           # Production values remain on the server.
           build-args: |
-            DATABASE_URL=postgresql://build:build@localhost:5432/build
-            LINKEDIN_CLIENT_ID=build-client-id
-            LINKEDIN_CLIENT_SECRET=build-client-secret
-            RECEIVER_EMAIL=build@example.com
-            CAREERS_EMAIL=build@example.com
-            BASE_URL=https://sphereitglobal.com
-            PAYLOAD_SECRET=build-payload-secret
-            SMTP_HOST=localhost
-            SMTP_PORT=1025
-            SMTP_USER=build-smtp-user
-            SMTP_PASS=build-smtp-pass
-            BETTER_AUTH_SECRET=build-auth-secret
-            BETTER_AUTH_URL=https://sphereitglobal.com
-            NEXT_PUBLIC_BASE_URL=https://sphereitglobal.com
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            LINKEDIN_CLIENT_ID=${{ secrets.LINKEDIN_CLIENT_ID }}
+            LINKEDIN_CLIENT_SECRET=${{ secrets.LINKEDIN_CLIENT_SECRET }}
+            RECEIVER_EMAIL=${{ secrets.RECEIVER_EMAIL }}
+            CAREERS_EMAIL=${{ secrets.CAREERS_EMAIL }}
+            BASE_URL=${{ secrets.BASE_URL }}
+            PAYLOAD_SECRET=${{ secrets.PAYLOAD_SECRET }}
+            SMTP_HOST=${{ secrets.SMTP_HOST }}
+            SMTP_PORT=${{ secrets.SMTP_PORT }}
+            SMTP_USER=${{ secrets.SMTP_USER }}
+            SMTP_PASS=${{ secrets.SMTP_PASS }}
+            BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
+            BETTER_AUTH_URL=${{ secrets.BETTER_AUTH_URL }}
+            NEXT_PUBLIC_BASE_URL=${{ secrets.NEXT_PUBLIC_BASE_URL }}
 
   # ==========================================
   # DEPLOY TO PRODUCTION
