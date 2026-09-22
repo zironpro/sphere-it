@@ -39,6 +39,8 @@ jobs:
           tags: ${{ env.IMAGE_NAME }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          secrets: |
+            env_file=${{ secrets.BUILD_ENV }}
 
   deploy:
     runs-on: ubuntu-latest
