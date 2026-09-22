@@ -58,6 +58,14 @@ jobs:
             RECEIVER_EMAIL=build@example.com
             CAREERS_EMAIL=build@example.com
             BASE_URL=https://sphereitglobal.com
+            PAYLOAD_SECRET=build-payload-secret
+            SMTP_HOST=localhost
+            SMTP_PORT=1025
+            SMTP_USER=build-smtp-user
+            SMTP_PASS=build-smtp-pass
+            BETTER_AUTH_SECRET=build-auth-secret
+            BETTER_AUTH_URL=https://sphereitglobal.com
+            NEXT_PUBLIC_BASE_URL=https://sphereitglobal.com
 
   # ==========================================
   # DEPLOY TO PRODUCTION
