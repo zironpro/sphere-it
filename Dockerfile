@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 
-# =========================
-# Dependencies
-# =========================
+# ==========================================
+# DEPENDENCIES
+# ==========================================
 FROM node:22-alpine AS deps
 
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -18,9 +18,9 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm store prune
 
 
-# =========================
-# Builder
-# =========================
+# ==========================================
+# BUILDER
+# ==========================================
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -34,26 +34,67 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN --mount=type=secret,id=env_file,target=/tmp/build.env \
-    echo "===== Checking Build Environment =====" && \
-    if grep -q '^DATABASE_URL=' /tmp/build.env; then echo "DATABASE_URL: PRESENT"; else echo "DATABASE_URL: MISSING"; fi && \
-    if grep -q '^LINKEDIN_CLIENT_ID=' /tmp/build.env; then echo "LINKEDIN_CLIENT_ID: PRESENT"; else echo "LINKEDIN_CLIENT_ID: MISSING"; fi && \
-    if grep -q '^LINKEDIN_CLIENT_SECRET=' /tmp/build.env; then echo "LINKEDIN_CLIENT_SECRET: PRESENT"; else echo "LINKEDIN_CLIENT_SECRET: MISSING"; fi && \
-    if grep -q '^RECEIVER_EMAIL=' /tmp/build.env; then echo "RECEIVER_EMAIL: PRESENT"; else echo "RECEIVER_EMAIL: MISSING"; fi && \
-    if grep -q '^CAREERS_EMAIL=' /tmp/build.env; then echo "CAREERS_EMAIL: PRESENT"; else echo "CAREERS_EMAIL: MISSING"; fi && \
-    echo "=====================================" && \
-    cp /tmp/build.env /app/.env && \
-    set -a && \
-    . /app/.env && \
-    set +a && \
-    export DATABASE_URL LINKEDIN_CLIENT_ID LINKEDIN_CLIENT_SECRET RECEIVER_EMAIL CAREERS_EMAIL && \
-    pnpm build && \
-    rm -f /app/.env
+# ------------------------------------------
+# Build-time environment variables
+# ------------------------------------------
+
+ARG DATABASE_URL
+ARG LINKEDIN_CLIENT_ID
+ARG LINKEDIN_CLIENT_SECRET
+ARG RECEIVER_EMAIL
+ARG CAREERS_EMAIL
+ARG BASE_URL
+
+ENV DATABASE_URL=$DATABASE_URL
+ENV LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID
+ENV LINKEDIN_CLIENT_SECRET=$LINKEDIN_CLIENT_SECRET
+ENV RECEIVER_EMAIL=$RECEIVER_EMAIL
+ENV CAREERS_EMAIL=$CAREERS_EMAIL
+ENV BASE_URL=$BASE_URL
+
+# ------------------------------------------
+# Verify variables without exposing values
+# ------------------------------------------
+
+RUN echo "========================================" && \
+    echo "Checking build environment..." && \
+    if [ -n "$DATABASE_URL" ]; then \
+      echo "DATABASE_URL: SET"; \
+    else \
+      echo "DATABASE_URL: MISSING"; \
+    fi && \
+    if [ -n "$LINKEDIN_CLIENT_ID" ]; then \
+      echo "LINKEDIN_CLIENT_ID: SET"; \
+    else \
+      echo "LINKEDIN_CLIENT_ID: MISSING"; \
+    fi && \
+    if [ -n "$LINKEDIN_CLIENT_SECRET" ]; then \
+      echo "LINKEDIN_CLIENT_SECRET: SET"; \
+    else \
+      echo "LINKEDIN_CLIENT_SECRET: MISSING"; \
+    fi && \
+    if [ -n "$RECEIVER_EMAIL" ]; then \
+      echo "RECEIVER_EMAIL: SET"; \
+    else \
+      echo "RECEIVER_EMAIL: MISSING"; \
+    fi && \
+    if [ -n "$CAREERS_EMAIL" ]; then \
+      echo "CAREERS_EMAIL: SET"; \
+    else \
+      echo "CAREERS_EMAIL: MISSING"; \
+    fi && \
+    echo "========================================"
+
+# ------------------------------------------
+# Build Next.js
+# ------------------------------------------
+
+RUN pnpm build
 
 
-# =========================
-# Production Runner
-# =========================
+# ==========================================
+# PRODUCTION RUNNER
+# ==========================================
 FROM node:22-alpine AS runner
 
 WORKDIR /app
@@ -69,7 +110,9 @@ RUN adduser --system --uid 1001 nextjs
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-RUN pnpm install --prod --frozen-lockfile && pnpm store prune
+RUN pnpm install --prod --frozen-lockfile
+
+RUN pnpm store prune
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 
@@ -81,8 +124,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 
-RUN mkdir -p /app/public/uploads \
-    && chown -R nextjs:nodejs /app/public/uploads
+RUN mkdir -p /app/public/uploads && \
+    chown -R nextjs:nodejs /app/public/uploads
 
 RUN chown -R nextjs:nodejs /app
 
