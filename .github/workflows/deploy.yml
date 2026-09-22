@@ -2,49 +2,67 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/zironpro/sphere-it:latest
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: zironmedia/sphere-it:latest
-          cache-from: type=registry,ref=zironmedia/sphere-it:latest
-          cache-to: type=inline
+          tags: ${{ env.IMAGE_NAME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
+
     steps:
-      - name: Deploy to VPS
+      - name: Deploy to sphereweb
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
+
             cd ${{ secrets.PROJECT_PATH }}
-            # Pull the latest images
-            docker compose pull
-            # Restart containers with the new image
-            docker compose up -d --remove-orphans
-            # Optional: Prune unused images to save space
-            docker system prune -f
+
+            echo "Pulling latest application image..."
+            sudo docker compose pull app
+
+            echo "Updating application..."
+            sudo docker compose up -d --no-deps app
+
+            echo "Cleaning unused images..."
+            sudo docker image prune -f
+
+            echo "Deployment completed."
