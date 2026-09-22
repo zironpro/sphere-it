@@ -1,91 +1,96 @@
 # syntax=docker/dockerfile:1
 
-# ================================
-# Stage 1: Dependencies
-# ================================
+# =========================
+# Dependencies
+# =========================
 FROM node:22-alpine AS deps
+
 RUN apk add --no-cache libc6-compat python3 make g++
+
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
-# Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
 
-# Cache dependencies for better layer caching
 RUN pnpm store prune
 
-# ================================
-# Stage 2: Builder
-# ================================
+
+# =========================
+# Builder
+# =========================
 FROM node:22-alpine AS builder
+
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
-# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production
 
-# .env is mounted as a BuildKit secret (see compose build.secrets) — not copied into image layers
+# Load the BuildKit secret into the environment.
+# Only variable presence is printed — never the actual values.
 RUN --mount=type=secret,id=env_file,target=/app/.env \
+    set -a && \
+    . /app/.env && \
+    set +a && \
+    echo "===== Build Environment Check =====" && \
+    if [ -n "${DATABASE_URL:-}" ]; then echo "DATABASE_URL: SET"; else echo "DATABASE_URL: MISSING"; fi && \
+    if [ -n "${LINKEDIN_CLIENT_ID:-}" ]; then echo "LINKEDIN_CLIENT_ID: SET"; else echo "LINKEDIN_CLIENT_ID: MISSING"; fi && \
+    if [ -n "${LINKEDIN_CLIENT_SECRET:-}" ]; then echo "LINKEDIN_CLIENT_SECRET: SET"; else echo "LINKEDIN_CLIENT_SECRET: MISSING"; fi && \
+    if [ -n "${RECEIVER_EMAIL:-}" ]; then echo "RECEIVER_EMAIL: SET"; else echo "RECEIVER_EMAIL: MISSING"; fi && \
+    if [ -n "${CAREERS_EMAIL:-}" ]; then echo "CAREERS_EMAIL: SET"; else echo "CAREERS_EMAIL: MISSING"; fi && \
+    echo "===================================" && \
     pnpm build
 
-# ================================
-# Stage 3: Runner
-# ================================
+
+# =========================
+# Production Runner
+# =========================
 FROM node:22-alpine AS runner
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install pnpm for production
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
-# Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
+
 RUN adduser --system --uid 1001 nextjs
 
-# Copy package files for production dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install only production dependencies
 RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
-# Copy built application from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
+
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 
-# Copy source files needed for server components and API routes
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 
-# Ensure uploads directory exists and is writable by the runtime user.
 RUN mkdir -p /app/public/uploads \
     && chown -R nextjs:nodejs /app/public/uploads
 
-# Set ownership
 RUN chown -R nextjs:nodejs /app
 
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
 ENV PORT=3000
+
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
 CMD ["pnpm", "start"]
-
