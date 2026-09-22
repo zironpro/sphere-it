@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -9,7 +10,6 @@ import {
 	IconSocialX,
 	IconSocialYoutube,
 } from "@/assets/icons";
-import { Logo } from "@/assets/logo";
 
 import { FOOTER } from "@/data/constants";
 import { getFooterGlobal } from "@/modules/global/footer";
@@ -43,7 +43,13 @@ export const Footer = async () => {
 									href="/"
 									title="Go to homepage"
 								>
-									<Logo className="text-primary-50" />
+									<Image
+										src="/secondary-logo.png"
+										alt="Sphere IT Global Logo"
+										width={138}
+										height={42}
+										className="object-contain"
+									/>
 								</Link>
 								<p className="mt-6 text-balance text-muted-background">
 									{data.description}
