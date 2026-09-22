@@ -31,23 +31,24 @@ COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1 \
-    NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
-# Load the BuildKit secret into the environment.
-# Only variable presence is printed — never the actual values.
-RUN --mount=type=secret,id=env_file,target=/app/.env \
+RUN --mount=type=secret,id=env_file,target=/tmp/build.env \
+    echo "===== Checking Build Environment =====" && \
+    if grep -q '^DATABASE_URL=' /tmp/build.env; then echo "DATABASE_URL: PRESENT"; else echo "DATABASE_URL: MISSING"; fi && \
+    if grep -q '^LINKEDIN_CLIENT_ID=' /tmp/build.env; then echo "LINKEDIN_CLIENT_ID: PRESENT"; else echo "LINKEDIN_CLIENT_ID: MISSING"; fi && \
+    if grep -q '^LINKEDIN_CLIENT_SECRET=' /tmp/build.env; then echo "LINKEDIN_CLIENT_SECRET: PRESENT"; else echo "LINKEDIN_CLIENT_SECRET: MISSING"; fi && \
+    if grep -q '^RECEIVER_EMAIL=' /tmp/build.env; then echo "RECEIVER_EMAIL: PRESENT"; else echo "RECEIVER_EMAIL: MISSING"; fi && \
+    if grep -q '^CAREERS_EMAIL=' /tmp/build.env; then echo "CAREERS_EMAIL: PRESENT"; else echo "CAREERS_EMAIL: MISSING"; fi && \
+    echo "=====================================" && \
+    cp /tmp/build.env /app/.env && \
     set -a && \
     . /app/.env && \
     set +a && \
-    echo "===== Build Environment Check =====" && \
-    if [ -n "${DATABASE_URL:-}" ]; then echo "DATABASE_URL: SET"; else echo "DATABASE_URL: MISSING"; fi && \
-    if [ -n "${LINKEDIN_CLIENT_ID:-}" ]; then echo "LINKEDIN_CLIENT_ID: SET"; else echo "LINKEDIN_CLIENT_ID: MISSING"; fi && \
-    if [ -n "${LINKEDIN_CLIENT_SECRET:-}" ]; then echo "LINKEDIN_CLIENT_SECRET: SET"; else echo "LINKEDIN_CLIENT_SECRET: MISSING"; fi && \
-    if [ -n "${RECEIVER_EMAIL:-}" ]; then echo "RECEIVER_EMAIL: SET"; else echo "RECEIVER_EMAIL: MISSING"; fi && \
-    if [ -n "${CAREERS_EMAIL:-}" ]; then echo "CAREERS_EMAIL: SET"; else echo "CAREERS_EMAIL: MISSING"; fi && \
-    echo "===================================" && \
-    pnpm build
+    export DATABASE_URL LINKEDIN_CLIENT_ID LINKEDIN_CLIENT_SECRET RECEIVER_EMAIL CAREERS_EMAIL && \
+    pnpm build && \
+    rm -f /app/.env
 
 
 # =========================
@@ -90,7 +91,6 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
-
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["pnpm", "start"]
